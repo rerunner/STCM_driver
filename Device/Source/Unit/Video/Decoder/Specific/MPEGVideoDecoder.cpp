@@ -17,9 +17,9 @@
 #define DEBUG_STREAMING_CMD 0
 
 #if _DEBUG && DEBUG_STREAMING_CMD
-	#define DP_STREAMCMD(unit, str, cmd) DebugPrint("%s : "str" (%s)\n", (char*) unit->GetInformation(), DBG_VDR_CMD_STRING(cmd)) 
-#else 
-	#define DP_STREAMCMD(unit, str, cmd) do {} while(0); 
+	#define DP_STREAMCMD(unit, str, cmd) DebugPrint("%s : "str" (%s)\n", (char*) unit->GetInformation(), DBG_VDR_CMD_STRING(cmd))
+#else
+	#define DP_STREAMCMD(unit, str, cmd) do {} while(0);
 #endif
 
 
@@ -76,18 +76,19 @@ STFResult MPEGVideoDecoderUnit::CreateVirtual(IVirtualUnit * & unit, IVirtualUni
 ///////////////////////////////////////////////////////////////////////////////
 
 VirtualMPEGVideoDecoderUnit::VirtualMPEGVideoDecoderUnit(MPEGVideoDecoderUnit * physicalMPEGVideoDecoder)
-	: VirtualThreadedStandardInOutStreamingUnitCollection(physicalMPEGVideoDecoder,	1,	// Number of children in the virtual unit collection,
-																16,	// Number of output packets in output connector,
-																8,	// Input connector queue size,
-																0,	// Input connector threshold,
-																"MPEGVideoDecoder")	// Thread ID name,
+	: VirtualThreadedStandardInOutStreamingUnitCollection(physicalMPEGVideoDecoder,
+														  1,	// Number of children in the virtual unit collection,
+														  16,	// Number of output packets in output connector,
+														  8,	// Input connector queue size,
+														  0,	// Input connector threshold,
+														  "MPEGVideoDecoder")	// Thread ID name,
 	{
 	this->physicalMPEGVideoDecoder = physicalMPEGVideoDecoder;
 	}
 
 
 STFResult VirtualMPEGVideoDecoderUnit::AllocateChildUnits (void)
-{
+	{
 	IVirtualUnit* outputPoolAllocatorVU = NULL;
 	STFResult res;
 
@@ -122,7 +123,7 @@ STFResult VirtualMPEGVideoDecoderUnit::AllocateChildUnits (void)
 	assert (numBlocksGotten == physicalMPEGVideoDecoder->mpegVideoDecoderDataBufferCount); // block count
 #endif
 
-	STFRES_REASSERT(outputPoolAllocatorVU->ActivateAndLock((VDRUALF_REALTIME_PRIORITY | VDRUALF_WAIT), 
+	STFRES_REASSERT(outputPoolAllocatorVU->ActivateAndLock((VDRUALF_REALTIME_PRIORITY | VDRUALF_WAIT),
 		STFHiPrec64BitTime(), STFHiPrec32BitDuration(0)));
 
 	STFRES_RAISE_OK;
@@ -136,9 +137,10 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 
 	mpeg2_buffer (decoder, buffer, end);
 
-	while (1) {
+	while (1)
+		{
 		state = mpeg2_parse (decoder);
-		switch (state) 
+		switch (state)
 			{
 			case STATE_BUFFER:
 				STFRES_RAISE_OK;
@@ -159,7 +161,7 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 				uvPitch = width / 2;
 
 				mpeg2_custom_fbuf (decoder, 1);
-				for (int i = 0; i < 3; i++) 
+				for (int i = 0; i < 3; i++)
 					{
 					/* For every frame buffer, allocate memory for y, u and v */
 					fbuf[i].mbuf[0] = (uint8_t *) malloc(info->sequence->width*info->sequence->height + 15);
@@ -180,7 +182,7 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 				break;
 			case STATE_PICTURE:
 				VirtualMPEGVideoDecoderUnit::current_fbuf = get_fbuf();
-				mpeg2_set_buf (decoder, VirtualMPEGVideoDecoderUnit::current_fbuf->yuv, 
+				mpeg2_set_buf (decoder, VirtualMPEGVideoDecoderUnit::current_fbuf->yuv,
 					VirtualMPEGVideoDecoderUnit::current_fbuf);
 				break;
 			case STATE_END:
@@ -197,7 +199,7 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 
 					// Copy the U (chroma)
 					memcpy (uPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
-					
+
 					// Copy the V (chroma)
 					memcpy (vPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
 
@@ -230,14 +232,14 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 //////////////////////////////////////////////////////////////////////////
 
 STFResult VirtualMPEGVideoDecoderUnit::ParseRanges(const VDRDataRange * ranges, uint32 num, uint32 & range, uint32 & offset)
-{
-	while (range < num)
 	{
+	while (range < num)
+		{
 		STFRES_REASSERT(this->DecodeData(ranges[range], offset));
 		range++;
-	}
+		}
 	STFRES_RAISE_OK;
-}
+	}
 
 
 STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand command, int32 param)
@@ -246,9 +248,10 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 	switch (command)
 		{
 		case VDR_STRMCMD_BEGIN:
-    			framenum = 0;
+    		framenum = 0;
 			decoder = mpeg2_init ();
-			if (decoder == NULL) {
+			if (decoder == NULL)
+				{
 				DP ("Could not allocate a decoder object.\n");
 				assert(0);
 				}
@@ -262,9 +265,9 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 				720,
 				576,
 				0);
-				
+
 			renderer = SDL_CreateRenderer(screen, -1, 0);
-			if (!renderer) 
+			if (!renderer)
 				{
 				DP("SDL: could not create renderer - exiting\n");
 				assert(0);
@@ -277,7 +280,7 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 				SDL_TEXTUREACCESS_STREAMING,
 				720,
 				576);
-			if (!texture) 
+			if (!texture)
 				{
 				DP("SDL: could not create texture - exiting\n");
 				assert(0);
@@ -317,37 +320,36 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 
 
 STFResult VirtualMPEGVideoDecoderUnit::PreemptUnit(uint32 flags)
-{
+	{
 	STFRES_REASSERT(VirtualThreadedStandardInOutStreamingUnitCollection::PreemptUnit (flags));
 
 	if (flags & (VDRUALF_PREEMPT_START_NEW | VDRUALF_PREEMPT_RESTART_PREVIOUS))
-	{
+		{
 		ResetThreadSignal();
 		STFRES_REASSERT(StartThread());
-	}
+		}
 
 	if (flags & (VDRUALF_PREEMPT_STOP_PREVIOUS | VDRUALF_PREEMPT_STOP_NEW))
-	{
+		{
 		StopThread();
-		Wait(); 
-	}
+		Wait();
+		}
 
 	if (flags & (VDRUALF_PREEMPT_CHANGE | VDRUALF_PREEMPT_RESTORE))
-	{
+		{
 		// not sure about this yet
-	}
+		}
 
 	STFRES_RAISE_OK;
-}
+	}
 
 
 STFResult VirtualMPEGVideoDecoderUnit::Initialize(void)
-{
+	{
 	STFRES_REASSERT(VirtualThreadedStandardInOutStreamingUnitCollection::Initialize());
-
 	STFRES_REASSERT(SetThreadPriority((STFThreadPriority) physicalMPEGVideoDecoder->threadPriority));
 	STFRES_REASSERT(SetThreadStackSize(physicalMPEGVideoDecoder->threadStackSize));
 	STFRES_REASSERT(SetThreadName(physicalMPEGVideoDecoder->threadName));
 	STFRES_RAISE_OK;
-}
+	}
 
