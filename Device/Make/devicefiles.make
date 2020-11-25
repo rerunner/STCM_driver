@@ -32,9 +32,9 @@ endif
 ifeq (linuxpcusr,$(findstring linuxpcusr,$(TARGET)))
 SRCS_CPP += \
 Source/Unit/Video/Decoder/Specific/MPEGVideoDecoder.cpp \
+Source/Unit/Video/Renderer/Specific/SDL2VideoRenderer.cpp \
 Source/Unit/Audio/Decoder/Specific/AC3Decoder.cpp \
-Source/Unit/Audio/Renderer/Specific/SDL2AudioRenderer.cpp \
-Source/Unit/Audio/Renderer/Specific/PulseAudioRenderer.cpp
+Source/Unit/Audio/Renderer/Specific/SDL2AudioRenderer.cpp
 endif
 
 # Linux ST40 User specific source files
@@ -75,7 +75,7 @@ endif
 ifeq (linuxpcusr,$(findstring linuxpcusr,$(TARGET)))
 VPATH+=\
 $(DEVICEBASE)/Source/Unit/Video/Decoder/Specific:\
-$(DEVICEBASE)/Source/Unit/Audio/Decoder/Generic:\
+$(DEVICEBASE)/Source/Unit/Video/Renderer/Specific:\
 $(DEVICEBASE)/Source/Unit/Audio/Decoder/Specific:\
 $(DEVICEBASE)/Source/Unit/Audio/Renderer/Specific:
 endif

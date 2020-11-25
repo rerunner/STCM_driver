@@ -11,8 +11,7 @@
 extern "C"
 {
 #include "GPL/libmpeg2-0.5.1/include/mpeg2.h"
-#include "SDL2/SDL.h"
-//#include "SDL/SDL_thread.h"
+//#include "SDL2/SDL.h"
 #include <unistd.h>
 }
 
@@ -103,9 +102,9 @@ protected:
 	size_t						size;
 	int						framenum;
 
-	SDL_Renderer		*renderer;
-	SDL_Window			*screen;
-	SDL_Texture		*texture;
+//	SDL_Renderer		*renderer;
+//	SDL_Window			*screen;
+//	SDL_Texture		*texture;
 	uint8_t			*yPlane, *uPlane, *vPlane;
 	size_t				yPlaneSz, uvPlaneSz;
 	int				uvPitch;

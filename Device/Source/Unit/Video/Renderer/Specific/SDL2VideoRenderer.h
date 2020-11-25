@@ -1,17 +1,20 @@
 #ifndef SDL2VIDEORENDERER_H
 #define SDL2VIDEORENDERER_H
 
+extern "C"
+{
+#include "SDL2/SDL.h"
+#include <unistd.h>
+}
+
 #include "VDR/Source/Streaming/StreamingUnit.h"
 #include "VDR/Source/Streaming/BaseStreamingUnit.h"
 #include "VDR/Source/Streaming/StreamingFormatter.h"
 #include "VDR/Source/Unit/PhysicalUnit.h"
 #include "STF/Interface/STFSynchronisation.h"
 #include "VDR/Source/Streaming/StreamingDiagnostics.h"
+#include "VDR/Interface/Unit/Video/Decoder/IVDRVideoDecoderTypes.h"
 
-extern "C"
-{
-#include "SDL2/SDL.h"
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Streaming Terminator Unit
@@ -22,7 +25,7 @@ class SDL2VideoRendererUnit : public SharedPhysicalUnit
 	friend class VirtualSDL2VideoRendererUnit;
 
 public:
-	SDL2AudioRendererUnit(VDRUID unitID) : SharedPhysicalUnit(unitID) {}
+	SDL2VideoRendererUnit(VDRUID unitID) : SharedPhysicalUnit(unitID) {}
 
 	//
 	// IPhysicalUnit interface implementation
@@ -39,19 +42,12 @@ public:
 class VirtualSDL2VideoRendererUnit : public VirtualNonthreadedStandardStreamingUnit
 {
 private:
-	struct WindowProperties_s
-		{
-		int width;
-		int height;
-		} WindowProperties;
-
-	struct ScreenProperties_s
-		{
-		int width;
-		int height;
-		} ScreenProperties;
-
 	bool	Preparing;
+
+	SequenceHeaderExtension *seqHeaderExtInfo; // See IVDRVideoDecoderTypes.h
+	SDL_Renderer		*renderer;
+	SDL_Window			*screen;
+	SDL_Texture		*texture;
 
 protected:
 
@@ -106,7 +102,7 @@ protected:
 public:
 	/// Specific constructor.
 	/// @param physical: Pointer to interface of corresponding physical unit
-	VirtualSDL2AudioRendererUnit (IPhysicalUnit * physical) : VirtualNonthreadedStandardStreamingUnit(physical) {}
+	VirtualSDL2VideoRendererUnit (IPhysicalUnit * physical) : VirtualNonthreadedStandardStreamingUnit(physical) {}
 
 	//
 	// IStreamingUnit interface implementation
@@ -118,10 +114,10 @@ public:
 	//
 	virtual STFString GetInformation(void)
 	{
-		return STFString("VirtualSDL2AudioRendererUnit ") + STFString(physical->GetUnitID());
+		return STFString("VirtualSDL2VideoRendererUnit ") + STFString(physical->GetUnitID());
 	}
 #endif
 };
 
 
-#endif // #ifndef SDL2AudioRENDERER_H
+#endif // #ifndef SDL2VIDEORENDERER_H

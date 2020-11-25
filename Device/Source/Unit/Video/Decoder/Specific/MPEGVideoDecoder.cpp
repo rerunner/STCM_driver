@@ -155,9 +155,11 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 				// set up YV12 pixel array (12 bits per pixel)
 				yPlaneSz = width * height;
 				uvPlaneSz = width * height / 4;
+#if 0
 				yPlane = (Uint8*)malloc(yPlaneSz);
 				uPlane = (Uint8*)malloc(uvPlaneSz);
 				vPlane = (Uint8*)malloc(uvPlaneSz);
+#endif
 				uvPitch = width / 2;
 
 				//NEW
@@ -305,6 +307,7 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 				}
 			info = mpeg2_info (decoder);
 
+#if 0
 			// Make a screen to put our video
 			screen = SDL_CreateWindow(
 				"MPEG2 Video",
@@ -333,7 +336,7 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 				DP("SDL: could not create texture - exiting\n");
 				assert(0);
 				}
-
+#endif
 			//NEW
 			for (int i = 0; i < 2; i++)
 				{
@@ -359,12 +362,14 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 			    free (fbuf[i].mbuf[1]);
 			    free (fbuf[i].mbuf[2]);
 			  }
+#if 0
 			SDL_DestroyTexture(texture);
 			SDL_DestroyRenderer(renderer);
 			SDL_DestroyWindow(screen);
 			free(yPlane);
 			free(uPlane);
 			free(vPlane);
+#endif
 			break;
 		case VDR_STRMCMD_STEP:
 		case VDR_STRMCMD_NONE:

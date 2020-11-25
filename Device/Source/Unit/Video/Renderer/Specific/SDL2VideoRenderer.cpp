@@ -27,6 +27,11 @@ STFResult SDL2VideoRendererUnit::CreateVirtual(IVirtualUnit * & unit, IVirtualUn
 ///////////////////////////////////////////////////////////////////////////////
 STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint32 & offset)
 	{
+	if (Preparing)
+	{
+		ConfigureRenderer();
+		Preparing = false;
+	}
 	STFRES_RAISE_OK;
 	}
 
@@ -35,11 +40,12 @@ STFResult VirtualSDL2VideoRendererUnit::ConfigureRenderer()
 	{
 	//Open SDL2 video device
 	// Make a screen to put our video
+	DP("Video Renderer creating display, width = %d, height = %d.\n", seqHeaderExtInfo->horizontalSize,seqHeaderExtInfo->verticalSize);
 	screen = SDL_CreateWindow(	"MPEG2 Video",
 								SDL_WINDOWPOS_UNDEFINED,
 								SDL_WINDOWPOS_UNDEFINED,
-								WindowProperties.width,
-								WindowProperties.height,
+								seqHeaderExtInfo->horizontalSize,
+								seqHeaderExtInfo->verticalSize,
 								0);
 
 	renderer = SDL_CreateRenderer(screen, -1, 0);
@@ -53,8 +59,8 @@ STFResult VirtualSDL2VideoRendererUnit::ConfigureRenderer()
 	texture = SDL_CreateTexture(	renderer,
 									SDL_PIXELFORMAT_YV12,
 									SDL_TEXTUREACCESS_STREAMING,
-									ScreenProperties.width,
-									ScreenProperties.height);
+									seqHeaderExtInfo->horizontalSize,
+									seqHeaderExtInfo->verticalSize);
 	if (!texture)
 		{
 		DP("SDL: could not create texture - exiting\n");
@@ -85,7 +91,9 @@ STFResult VirtualSDL2VideoRendererUnit::BeginStreamingCommand(VDRStreamingComman
 		case VDR_STRMCMD_DO:
 			break;
 		case VDR_STRMCMD_FLUSH:
-			/* Make sure that every single sample was played */
+			SDL_DestroyTexture(texture);
+			SDL_DestroyRenderer(renderer);
+			SDL_DestroyWindow(screen);
 			break;
 		case VDR_STRMCMD_STEP:
 		case VDR_STRMCMD_NONE:
@@ -106,14 +114,9 @@ STFResult VirtualSDL2VideoRendererUnit::ParseConfigure(TAG *& tags)
 		{
 		switch (tp->id)
 			{
-			case CSET_AUDIO_STREAM_AUDIO_CODING_MODE:
-				codingMode = VAL_AUDIO_STREAM_AUDIO_CODING_MODE(tp);
-				DP("AUDIO_STREAM_AUDIO_CODING_MODE = %d\n", codingMode);
-				channels_multi (); // Convert codingMode to pulse audio channels
-				break;
-			case CSET_AUDIO_STREAM_SAMPLE_RATE:
-				sampleRate = VAL_AUDIO_STREAM_SAMPLE_RATE(tp);
-				DP("AUDIO_STREAM_SAMPLE_RATE = %d\n", sampleRate);
+			case CSET_MPEG_VIDEO_SEQUENCE_PARAMETERS:
+				seqHeaderExtInfo = VAL_MPEG_VIDEO_SEQUENCE_PARAMETERS(tp);
+				DP("MPEG_VIDEO_SEQUENCE_PARAMETERS received\n");
 				break;
 			default:
 				DP("Unknown tags!\n");
