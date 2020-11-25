@@ -7,7 +7,7 @@
 
 #include "VDR/Interface/Unit/Video/Display/IVDRVideoTypes.h"
 
-// Input video input TAG ID. 
+// Input video input TAG ID.
 // TAG IDs created by the VDR ID value manager
 static const VDRTID VDRTID_VIDEO_INPUT = 0x0003b000;
 
@@ -21,5 +21,5 @@ MKTAG(VIDEO_INPUT_MACROVISION,					VDRTID_VIDEO_INPUT,	0x006, bool)
 MKTAG(VIDEO_INPUT_ASPECTRATIO,               VDRTID_VIDEO_INPUT,	0x007, VideoPresentationMode)
 MKTAG(VIDEO_CURRENT_VIDEOTYPE,    				VDRTID_VIDEO_INPUT,	0x008, VideoSource)
 
- 
+
 #endif // IVDRVIDEOINPUTTAGS_H

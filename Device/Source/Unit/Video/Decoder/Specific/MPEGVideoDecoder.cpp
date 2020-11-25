@@ -160,6 +160,13 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 				vPlane = (Uint8*)malloc(uvPlaneSz);
 				uvPitch = width / 2;
 
+				//NEW
+				seqHeaderExtInfo.horizontalSize = info->sequence->width;
+				seqHeaderExtInfo.verticalSize = info->sequence->height;
+				seqHeaderExtInfo.horizontalChromaSize = info->sequence->chroma_width;
+				seqHeaderExtInfo.verticalChromaSize = info->sequence->chroma_height;
+				//NEW
+
 				mpeg2_custom_fbuf (decoder, 1);
 				for (int i = 0; i < 3; i++)
 					{
@@ -179,6 +186,22 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 					mpeg2_set_buf (decoder, current_fbuf->yuv, current_fbuf);
 					}
 				mpeg2_skip (decoder, 0);
+
+				//NEW
+				if (framenum == 0)
+					{
+					STFRES_REASSERT(outputFormatter.BeginSegment(segmentCount, false));
+					STFRES_REASSERT(outputFormatter.PutDataDiscontinuity());
+					}
+				if (dataPropertiesChanged & MPEG2_VIDEOTYPE_CHANGED)
+					{
+					STFRES_REASSERT(outputFormatter.PutTag(SET_MPEG_VIDEO_SEQUENCE_PARAMETERS(&seqHeaderExtInfo)));
+					dataPropertiesChanged &= ~MPEG2_VIDEOTYPE_CHANGED;
+					// Each call to PutTag() places one tag into the stream,
+					// the call to CompleteTags() finally places the tag done
+					STFRES_REASSERT(outputFormatter.CompleteTags());
+					}
+				// END NEW
 				break;
 			case STATE_PICTURE:
 				VirtualMPEGVideoDecoderUnit::current_fbuf = get_fbuf();
@@ -192,30 +215,13 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 			case STATE_SLICE:
 				if (info->display_fbuf)
 					{
-					// picture ready. memcopy to framebuffer. Note that u and v are reversed to get the correct color.
+					// START NEW
+					STFRES_REASSERT(outputFormatter.BeginGroup(framenum, false, true));
+					// END NEW
 
-					// Copy the Y (Luma)
-					memcpy (yPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
-
-					// Copy the U (chroma)
-					memcpy (uPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
-
-					// Copy the V (chroma)
-					memcpy (vPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
-
-					SDL_UpdateYUVTexture(
-						texture,
-						NULL,
-						yPlane,
-						720,
-						uPlane,
-						uvPitch,
-						vPlane,
-						uvPitch);
-
-					SDL_RenderClear(renderer);
-					SDL_RenderCopy(renderer, texture, NULL, NULL);
-					SDL_RenderPresent(renderer);
+					// picture ready. memcopy to framebuffer. Note that u and v are reversed to
+					// get the correct color.
+					DeliverData((struct fbuf_s *)info);
 					}
 				if (info->discard_fbuf)
 					{
@@ -228,6 +234,45 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 		}
 	STFRES_RAISE_OK;
 	}
+
+
+STFResult VirtualMPEGVideoDecoderUnit::DeliverData(fbuf_s * infoBuffer)
+	{
+#if 0
+	// Copy the Y (Luma)
+	memcpy (yPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
+
+	// Copy the U (chroma)
+	memcpy (uPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
+
+	// Copy the V (chroma)
+	memcpy (vPlane, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
+
+	SDL_UpdateYUVTexture(
+		texture,
+		NULL,
+		yPlane,
+		720,
+		uPlane,
+		uvPitch,
+		vPlane,
+		uvPitch);
+
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
+#else
+	// Copy the sample into the memoryblock
+	memcpy (range[rangeCounter%2].block->GetStart(), ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
+	memcpy (range[rangeCounter%2].block->GetStart() + ysize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
+	memcpy (range[rangeCounter%2].block->GetStart() + ysize + uvsize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
+	STFRES_REASSERT(outputFormatter.PutRange(range[rangeCounter%2]));
+	outputFormatter.Commit(); // Don't wait, just push to the output
+	rangeCounter++;
+#endif
+	STFRES_RAISE_OK;
+	}
+
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -248,7 +293,10 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 	switch (command)
 		{
 		case VDR_STRMCMD_BEGIN:
-    		framenum = 0;
+			dataPropertiesChanged = MPEG2_VIDEOTYPE_CHANGED;
+			groupNumber = 0;
+			segmentCount = 0;
+			framenum = 0;
 			decoder = mpeg2_init ();
 			if (decoder == NULL)
 				{
@@ -285,6 +333,18 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 				DP("SDL: could not create texture - exiting\n");
 				assert(0);
 				}
+
+			//NEW
+			for (int i = 0; i < 2; i++)
+				{
+				if ( STFRES_FAILED(outputPoolAllocator->GetMemoryBlocks(&memoryBlock, 0, 1, numObtainedBlocks, this)))
+					{
+					return STFRES_NOT_ENOUGH_MEMORY;
+					}
+				range[i].Init(memoryBlock, 0, memoryBlock->GetSize());
+				}
+			rangeCounter = 0;
+			//END NEW
 			// Immediately fake the signal that enough data was received to start
 			inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
 			break;

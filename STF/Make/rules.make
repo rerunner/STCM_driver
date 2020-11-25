@@ -27,7 +27,6 @@ ifeq ($(VERBOSE_CC), 1)
 endif
 	@$(CC) $(INCLUDEPATHS) $(WARNINGFLAGS) $(CFLAGS) $(BOARDFLAGS) -c -o $@ $(shell cygpath -m $<)
 else
-	@echo "$(CC) $(INCLUDEPATHS) $(WARNINGFLAGS) $(CFLAGS) $(BOARDFLAGS) -c -o $@ $<"
 	@$(CC) $(INCLUDEPATHS) $(WARNINGFLAGS) $(CFLAGS) $(BOARDFLAGS) -c -o $@ $<
 endif
 
@@ -39,7 +38,6 @@ ifeq ($(VERBOSE_CC), 1)
 endif
 	@$(CC) $(INCLUDEPATHS) $(WARNINGFLAGS) $(CFLAGS) $(BOARDFLAGS) -c -o $@ $(shell cygpath -m $<)
 else
-	@echo "$(CC) $(INCLUDEPATHS) $(WARNINGFLAGS) $(CFLAGS) $(BOARDFLAGS) -c -o $@ $<"
 	@$(CC) $(INCLUDEPATHS) $(WARNINGFLAGS) $(CFLAGS) $(BOARDFLAGS) -c -o $@ $<
 endif
 

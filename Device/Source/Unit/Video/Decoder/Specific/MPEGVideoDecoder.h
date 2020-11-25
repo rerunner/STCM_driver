@@ -2,13 +2,13 @@
 #define MPEGVIDEODECODER_H
 
 ///
-/// @brief 
+/// @brief
 ///
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
-extern "C" 
+extern "C"
 {
 #include "GPL/libmpeg2-0.5.1/include/mpeg2.h"
 #include "SDL2/SDL.h"
@@ -22,8 +22,11 @@ extern "C"
 #include "VDR/Source/Unit/PhysicalUnit.h"
 #include "STF/Interface/STFSynchronisation.h"
 #include "VDR/Source/Streaming/StreamingDiagnostics.h"
+#include "VDR/Interface/Unit/Video/Decoder/IVDRVideoDecoderTypes.h"
 
 #define ALIGN_16(p) ((void*)(((uintptr_t)(p) + 15) & ~((uintptr_t)15)))
+
+#define MPEG2_VIDEOTYPE_CHANGED	MKFLAG(0)
 
 ///////////////////////////////////////////////////////////////////////////////
 // Streaming Terminator Unit
@@ -88,33 +91,42 @@ class VirtualMPEGVideoDecoderUnit : public VirtualThreadedStandardInOutStreaming
 		return NULL;
 		}
 protected:
-	MPEGVideoDecoderUnit *physicalMPEGVideoDecoder;
-	IVDRMemoryPoolAllocator *outputPoolAllocator;
+	MPEGVideoDecoderUnit		*physicalMPEGVideoDecoder;
+	IVDRMemoryPoolAllocator	*outputPoolAllocator;
 
-	STFHiPrec64BitDuration	currentSystemTimeOffset;
-	STFHiPrec64BitTime		currentStreamTime, systemStartTime;
+	STFHiPrec64BitDuration		currentSystemTimeOffset;
+	STFHiPrec64BitTime			currentStreamTime, systemStartTime;
 
-	mpeg2dec_t			*decoder;
-	const mpeg2_info_t	*info;
-	mpeg2_state_t		state;
-	size_t				size;
-	int					framenum;
+	mpeg2dec_t					*decoder;
+	const mpeg2_info_t			*info;
+	mpeg2_state_t				state;
+	size_t						size;
+	int						framenum;
 
 	SDL_Renderer		*renderer;
 	SDL_Window			*screen;
-	SDL_Texture			*texture;
-	uint8_t				*yPlane, *uPlane, *vPlane;
+	SDL_Texture		*texture;
+	uint8_t			*yPlane, *uPlane, *vPlane;
 	size_t				yPlaneSz, uvPlaneSz;
-	int					uvPitch;
-	uint8_t				*frameBuffer;
-	int					width, height, ysize, uvsize, dest_pitch;
+	int				uvPitch;
+	uint8_t			*frameBuffer;
+	int				width, height, ysize, uvsize, dest_pitch;
 	struct fbuf_s		*current_fbuf;
 
 	STFHiPrec64BitTime		startTime;
 	STFHiPrec64BitTime		endTime;
 	STFHiPrec32BitDuration	timeDiff;
 
+	SequenceHeaderExtension seqHeaderExtInfo; // See IVDRVideoDecoderTypes.h
+	int segmentCount;
+	uint32 dataPropertiesChanged;
+	uint32 numObtainedBlocks; ///< Number of allocated memory blocks
+	VDRMemoryBlock *memoryBlock;
+	VDRDataRange	range[2]; // One decoding, one displaying
+	int rangeCounter;
+
 	virtual STFResult DecodeData(const VDRDataRange & range, uint32 & offset);
+	virtual STFResult DeliverData(fbuf_s * infoBuffer);
 
 	//
 	// IVirtualUnit

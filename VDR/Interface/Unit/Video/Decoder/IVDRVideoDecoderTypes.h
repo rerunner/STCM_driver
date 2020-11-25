@@ -62,6 +62,8 @@ struct SequenceHeaderExtension	// MPEG 1/2
 	bool   lowDelay;
 	uint8  frameRateExtensionN;
 	uint8  frameRateExtensionD;
+	uint16 horizontalChromaSize;
+	uint16 verticalChromaSize;
 	};
 
 struct Mpeg4FrameInfo	
