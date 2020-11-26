@@ -27,11 +27,35 @@ STFResult SDL2VideoRendererUnit::CreateVirtual(IVirtualUnit * & unit, IVirtualUn
 ///////////////////////////////////////////////////////////////////////////////
 STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint32 & offset)
 	{
+	uint8 *buffer = range.GetStart() + offset;
+
 	if (Preparing)
 	{
 		ConfigureRenderer();
 		Preparing = false;
 	}
+
+	int ysize = seqHeaderExtInfo->horizontalSize * seqHeaderExtInfo->verticalSize;
+	int uvsize = seqHeaderExtInfo->horizontalChromaSize * seqHeaderExtInfo->verticalChromaSize;
+	int uvPitch = seqHeaderExtInfo->horizontalSize / 2;
+	uint8 *yPlane = buffer; // size = ySize
+	uint8 *vPlane = buffer + ysize; // size = uvsize
+	uint8 *uPlane = vPlane + uvsize; // size = uvsize
+
+	SDL_UpdateYUVTexture(
+		texture,
+		NULL,
+		yPlane,
+		seqHeaderExtInfo->horizontalSize,
+		uPlane,
+		uvPitch,
+		vPlane,
+		uvPitch);
+
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, NULL, NULL);
+	SDL_RenderPresent(renderer);
+
 	STFRES_RAISE_OK;
 	}
 
@@ -80,7 +104,6 @@ STFResult VirtualSDL2VideoRendererUnit::ParseRange(const VDRDataRange & range, u
 
 STFResult VirtualSDL2VideoRendererUnit::BeginStreamingCommand(VDRStreamingCommand command, int32 param)
 	{
-	int error;
 	switch (command)
 		{
 		case VDR_STRMCMD_BEGIN:
