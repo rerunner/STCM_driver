@@ -117,11 +117,13 @@ protected:
 	uint32 dataPropertiesChanged;
 	uint32 numObtainedBlocks; ///< Number of allocated memory blocks
 	VDRMemoryBlock *memoryBlock;
-	VDRDataRange	range[2]; // One decoding, one displaying
+	VDRDataRange	decodedPictureRange[2]; // One decoding, one displaying
 	int rangeCounter;
+	bool preparing;
 
+	virtual STFResult PrepareDecoder();
 	virtual STFResult DecodeData(const VDRDataRange & range, uint32 & offset);
-	virtual STFResult DeliverData(fbuf_s * infoBuffer);
+	virtual STFResult DeliverData();
 
 	//
 	// IVirtualUnit

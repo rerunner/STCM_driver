@@ -55,7 +55,7 @@ STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint3
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
-
+	usleep(20 * 1000); // REMOVE THIS WHEN PRESENTATION TIME IS MATCHED WITH SYSTEM TIME
 	STFRES_RAISE_OK;
 	}
 
@@ -90,6 +90,7 @@ STFResult VirtualSDL2VideoRendererUnit::ConfigureRenderer()
 		DP("SDL: could not create texture - exiting\n");
 		assert(0);
 		}
+	inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
 	STFRES_RAISE_OK;
 	}
 
@@ -108,15 +109,19 @@ STFResult VirtualSDL2VideoRendererUnit::BeginStreamingCommand(VDRStreamingComman
 		{
 		case VDR_STRMCMD_BEGIN:
 			Preparing = true;
-			// Immediately fake the signal that enough data was received to start
-			inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
+// SDL2 Init, this needs a better place...
+			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) 
+				{
+				DP("SDL2 global init failed.\n");
+				}
+			else
+				{
+				DP("SDL2 global init OK.\n");
+				}
 			break;
 		case VDR_STRMCMD_DO:
 			break;
 		case VDR_STRMCMD_FLUSH:
-			SDL_DestroyTexture(texture);
-			SDL_DestroyRenderer(renderer);
-			SDL_DestroyWindow(screen);
 			break;
 		case VDR_STRMCMD_STEP:
 		case VDR_STRMCMD_NONE:

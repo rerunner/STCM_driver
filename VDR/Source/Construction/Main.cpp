@@ -6,14 +6,6 @@
 #include "VDR/Source/Startup/MemoryStartup.h"
 #include "VDR/Source/Startup/KernelStartup.h"
 
-extern "C"
-{
-#include <stdio.h>
-#include <unistd.h>
-#include "SDL2/SDL.h"
-}
-//#include <directfb.h>
-
 IVDRBase * Board;
 
 int main (int argc, char ** argv)
@@ -34,16 +26,6 @@ int main (int argc, char ** argv)
 
 	InitializeSTFThreads();
 	InitializeSTFTimer();
-
-	// SDL2 Init, this needs a better place...
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) 
-		{
-		DP("SDL2 global init failed.\n");
-		}
-	else
-		{
-		DP("SDL2 global init OK.\n");
-		}
 
 	PreBoardConstructionCallback();
 

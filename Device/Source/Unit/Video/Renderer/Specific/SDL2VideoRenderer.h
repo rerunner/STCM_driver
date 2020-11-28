@@ -103,6 +103,13 @@ public:
 	/// Specific constructor.
 	/// @param physical: Pointer to interface of corresponding physical unit
 	VirtualSDL2VideoRendererUnit (IPhysicalUnit * physical) : VirtualNonthreadedStandardStreamingUnit(physical) {}
+	~VirtualSDL2VideoRendererUnit()
+		{
+		SDL_DestroyTexture(texture);
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(screen);
+		SDL_Quit();
+		}
 
 	//
 	// IStreamingUnit interface implementation

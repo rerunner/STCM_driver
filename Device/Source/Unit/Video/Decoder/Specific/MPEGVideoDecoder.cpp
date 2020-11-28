@@ -78,8 +78,8 @@ STFResult MPEGVideoDecoderUnit::CreateVirtual(IVirtualUnit * & unit, IVirtualUni
 VirtualMPEGVideoDecoderUnit::VirtualMPEGVideoDecoderUnit(MPEGVideoDecoderUnit * physicalMPEGVideoDecoder)
 	: VirtualThreadedStandardInOutStreamingUnitCollection(physicalMPEGVideoDecoder,
 														  1,	// Number of children in the virtual unit collection,
-														  16,	// Number of output packets in output connector,
-														  8,	// Input connector queue size,
+														  2,	// Number of output packets in output connector,
+														  4,	// Input connector queue size,
 														  0,	// Input connector threshold,
 														  "MPEGVideoDecoder")	// Thread ID name,
 	{
@@ -130,19 +130,45 @@ STFResult VirtualMPEGVideoDecoderUnit::AllocateChildUnits (void)
 	}
 
 
+STFResult VirtualMPEGVideoDecoderUnit::PrepareDecoder()
+	{
+	preparing = false;
+	for (int i = 0; i < 2; i++)
+		{
+		if ( STFRES_FAILED(outputPoolAllocator->GetMemoryBlocks(&memoryBlock, 0, 1, numObtainedBlocks, this)))
+			{
+			return STFRES_NOT_ENOUGH_MEMORY;
+			}
+		decodedPictureRange[i].Init(memoryBlock, 0, memoryBlock->GetSize());
+		}
+	rangeCounter = 0;
+
+	//Signal upstream that the decoder is ready to start
+	inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
+	STFRES_RAISE_OK;
+	}
+
 STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, uint32 & offset)
 	{
-	uint8_t * buffer = range.GetStart() + offset;
-	uint8_t * end = buffer + range.size - offset;
+	uint8_t * buffer;
+	uint8_t * end;
+
+	if (preparing)
+		{
+		PrepareDecoder();
+		}
+
+	buffer = range.GetStart() + offset;
+	end = buffer + range.size - offset;
 
 	mpeg2_buffer (decoder, buffer, end);
-
-	while (1)
+	while (!flushRequest)
 		{
 		state = mpeg2_parse (decoder);
 		switch (state)
 			{
 			case STATE_BUFFER:
+				mpeg2_buffer (decoder, buffer, end);
 				STFRES_RAISE_OK;
 				break;
 			case STATE_SEQUENCE:
@@ -183,11 +209,11 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 					}
 				mpeg2_skip (decoder, 0);
 
-				if (framenum == 0)
-					{
-					STFRES_REASSERT(outputFormatter.BeginSegment(segmentCount, false));
-					STFRES_REASSERT(outputFormatter.PutDataDiscontinuity());
-					}
+				//if (framenum == 0)
+				//	{
+				//	STFRES_REASSERT(outputFormatter.BeginSegment(segmentCount, false));
+				//	STFRES_REASSERT(outputFormatter.PutDataDiscontinuity());
+				//	}
 				if (dataPropertiesChanged & MPEG2_VIDEOTYPE_CHANGED)
 					{
 					STFRES_REASSERT(outputFormatter.PutTag(SET_MPEG_VIDEO_SEQUENCE_PARAMETERS(&seqHeaderExtInfo)));
@@ -210,9 +236,8 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 			case STATE_SLICE:
 				if (info->display_fbuf)
 					{
-					STFRES_REASSERT(outputFormatter.BeginGroup(framenum, false, true));
 					// picture ready.
-					DeliverData((struct fbuf_s *)info);
+					DeliverData();
 					}
 				if (info->discard_fbuf)
 					{
@@ -227,18 +252,18 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 	}
 
 
-STFResult VirtualMPEGVideoDecoderUnit::DeliverData(fbuf_s * infoBuffer)
+STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 	{
+	STFRES_REASSERT(outputFormatter.BeginGroup(framenum, false, true));
+	// picture ready.
 	// memcopy to framebuffer. Note that u and v are reversed to
 	// get the correct color.
-
 	// Copy the sample into the memoryblock
-	memcpy (range[rangeCounter%2].block->GetStart(), ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
-	memcpy (range[rangeCounter%2].block->GetStart() + ysize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
-	memcpy (range[rangeCounter%2].block->GetStart() + ysize + uvsize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
-
-	STFRES_REASSERT(outputFormatter.PutRange(range[rangeCounter%2]));
-	outputFormatter.Commit(); // Don't wait, just push to the output
+	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart(), ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
+	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
+	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize + uvsize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
+	STFRES_REASSERT(outputFormatter.PutRange(decodedPictureRange[rangeCounter%2]));
+	outputFormatter.Commit(); // Don't wait, just push to the output (temporary)
 	rangeCounter++;
 
 	STFRES_RAISE_OK;
@@ -268,40 +293,12 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 			groupNumber = 0;
 			segmentCount = 0;
 			framenum = 0;
-			decoder = mpeg2_init ();
-			if (decoder == NULL)
-				{
-				DP ("Could not allocate a decoder object.\n");
-				assert(0);
-				}
-			info = mpeg2_info (decoder);
-
-			for (int i = 0; i < 2; i++)
-				{
-				if ( STFRES_FAILED(outputPoolAllocator->GetMemoryBlocks(&memoryBlock, 0, 1, numObtainedBlocks, this)))
-					{
-					return STFRES_NOT_ENOUGH_MEMORY;
-					}
-				range[i].Init(memoryBlock, 0, memoryBlock->GetSize());
-				}
-			rangeCounter = 0;
-
-			// Immediately fake the signal that enough data was received to start
-			inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
+			preparing = true;
 			break;
-
 		case VDR_STRMCMD_DO:
 			break;
 		case VDR_STRMCMD_FLUSH:
-			mpeg2_close (decoder);
-			for (int i = 0; i < 3; i++)
-			  {
-			    free (fbuf[i].mbuf[0]);
-			    free (fbuf[i].mbuf[1]);
-			    free (fbuf[i].mbuf[2]);
-			  }
-
-			break;
+				
 		case VDR_STRMCMD_STEP:
 		case VDR_STRMCMD_NONE:
 			break;
@@ -321,12 +318,29 @@ STFResult VirtualMPEGVideoDecoderUnit::PreemptUnit(uint32 flags)
 
 	if (flags & (VDRUALF_PREEMPT_START_NEW | VDRUALF_PREEMPT_RESTART_PREVIOUS))
 		{
+		decoder = mpeg2_init ();
+		if (decoder == NULL)
+			{
+			DP ("Could not allocate a decoder object.\n");
+			assert(0);
+			}
+		info = mpeg2_info (decoder);
+
 		ResetThreadSignal();
 		STFRES_REASSERT(StartThread());
 		}
 
 	if (flags & (VDRUALF_PREEMPT_STOP_PREVIOUS | VDRUALF_PREEMPT_STOP_NEW))
 		{
+		//cleanup
+		mpeg2_close (decoder);
+		for (int i = 0; i < 3; i++)
+			{
+			free (fbuf[i].mbuf[0]);
+			free (fbuf[i].mbuf[1]);
+			free (fbuf[i].mbuf[2]);
+			}
+
 		StopThread();
 		Wait();
 		}
