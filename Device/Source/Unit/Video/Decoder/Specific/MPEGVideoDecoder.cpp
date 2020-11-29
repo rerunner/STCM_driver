@@ -78,7 +78,7 @@ STFResult MPEGVideoDecoderUnit::CreateVirtual(IVirtualUnit * & unit, IVirtualUni
 VirtualMPEGVideoDecoderUnit::VirtualMPEGVideoDecoderUnit(MPEGVideoDecoderUnit * physicalMPEGVideoDecoder)
 	: VirtualThreadedStandardInOutStreamingUnitCollection(physicalMPEGVideoDecoder,
 														  1,	// Number of children in the virtual unit collection,
-														  2,	// Number of output packets in output connector,
+														  4,	// Number of output packets in output connector,
 														  4,	// Input connector queue size,
 														  0,	// Input connector threshold,
 														  "MPEGVideoDecoder")	// Thread ID name,
@@ -263,7 +263,7 @@ STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
 	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize + uvsize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
 	STFRES_REASSERT(outputFormatter.PutRange(decodedPictureRange[rangeCounter%2]));
-	outputFormatter.Commit(); // Don't wait, just push to the output (temporary)
+	outputFormatter.Commit(); // Don't wait, just push to the output (temporary hack until renderer is timed correctly)
 	rangeCounter++;
 
 	STFRES_RAISE_OK;

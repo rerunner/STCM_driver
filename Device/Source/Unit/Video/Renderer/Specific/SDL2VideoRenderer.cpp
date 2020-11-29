@@ -55,7 +55,7 @@ STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint3
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
-	usleep(20 * 1000); // REMOVE THIS WHEN PRESENTATION TIME IS MATCHED WITH SYSTEM TIME
+	usleep(25 * 1000); // HACK HACK HACK: REMOVE THIS WHEN PRESENTATION TIME IS MATCHED WITH SYSTEM TIME (Unit uses thread)
 	STFRES_RAISE_OK;
 	}
 

@@ -129,7 +129,7 @@ STFResult VirtualAC3DecoderUnit::DeliverData(sample_t * _samples)
 	// Copy the sample into the memoryblock
 	memcpy (range[rangeCounter%10].block->GetStart(), _samples, range[rangeCounter%10].block->GetSize());
 	STFRES_REASSERT(outputFormatter.PutRange(range[rangeCounter%10]));
-//	outputFormatter.Commit(); // Needed?
+	outputFormatter.Commit(); // Needed?
 	rangeCounter++;
 	STFRES_RAISE_OK;
 	}
@@ -180,7 +180,7 @@ STFResult PhysicalAC3DecoderUnit::CreateVirtual(IVirtualUnit * & unit, IVirtualU
 
 VirtualAC3DecoderUnit::VirtualAC3DecoderUnit(PhysicalAC3DecoderUnit * physicalAC3Decoder)
 	: VirtualThreadedStandardInOutStreamingUnitCollection(physicalAC3Decoder,	1,	// Number of children in the virtual unit collection,
-																16,	// Number of output packets in output connector,
+																2,	// Number of output packets in output connector,
 																16,	// Input connector queue size,
 																0,	// Input connector threshold,
 																"AC3Decoder")	// Thread ID name,
