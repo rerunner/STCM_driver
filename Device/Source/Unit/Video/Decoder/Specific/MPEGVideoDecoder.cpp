@@ -208,21 +208,6 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 					mpeg2_set_buf (decoder, current_fbuf->yuv, current_fbuf);
 					}
 				mpeg2_skip (decoder, 0);
-
-				//if (framenum == 0)
-				//	{
-				//	STFRES_REASSERT(outputFormatter.BeginSegment(segmentCount, false));
-				//	STFRES_REASSERT(outputFormatter.PutDataDiscontinuity());
-				//	}
-				if (dataPropertiesChanged & MPEG2_VIDEOTYPE_CHANGED)
-					{
-					STFRES_REASSERT(outputFormatter.PutTag(SET_MPEG_VIDEO_SEQUENCE_PARAMETERS(&seqHeaderExtInfo)));
-					dataPropertiesChanged &= ~MPEG2_VIDEOTYPE_CHANGED;
-					// Each call to PutTag() places one tag into the stream,
-					// the call to CompleteTags() finally places the tag done
-					STFRES_REASSERT(outputFormatter.CompleteTags());
-					}
-
 				break;
 			case STATE_PICTURE:
 				VirtualMPEGVideoDecoderUnit::current_fbuf = get_fbuf();
@@ -254,7 +239,30 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 
 STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 	{
-	STFRES_REASSERT(outputFormatter.BeginGroup(framenum, false, true));
+	// Deliver segment start
+	if (framenum == 0)
+		{
+		STFRES_REASSERT(outputFormatter.BeginSegment(segmentCount, false));
+		STFRES_REASSERT(outputFormatter.PutDataDiscontinuity());
+		}
+
+	if (dataPropertiesChanged & MPEG2_VIDEOTYPE_CHANGED)
+		{
+		STFRES_REASSERT(outputFormatter.PutTag(SET_MPEG_VIDEO_SEQUENCE_PARAMETERS(&seqHeaderExtInfo)));
+		dataPropertiesChanged &= ~MPEG2_VIDEOTYPE_CHANGED;
+		// Each call to PutTag() places one tag into the stream,
+		// the call to CompleteTags() finally places the tag done
+		STFRES_REASSERT(outputFormatter.CompleteTags());
+		}
+
+	// Deliver group start
+	STFRES_REASSERT(outputFormatter.BeginGroup(framenum++, false, true));
+	// Deliver start time
+	if (startTimePending)
+		{
+		STFRES_REASSERT(outputFormatter.PutStartTime(startTime));
+		startTimePending = false;
+		}
 	// picture ready.
 	// memcopy to framebuffer. Note that u and v are reversed to
 	// get the correct color.
@@ -262,9 +270,24 @@ STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart(), ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
 	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
 	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize + uvsize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
+
 	STFRES_REASSERT(outputFormatter.PutRange(decodedPictureRange[rangeCounter%2]));
-	outputFormatter.Commit(); // Don't wait, just push to the output (temporary hack until renderer is timed correctly)
+	outputFormatter.Commit(); // Don't wait, just push to the output
+
 	rangeCounter++;
+
+	// Deliver end time
+	if (endTimePending)
+		{
+		STFRES_REASSERT(outputFormatter.PutEndTime(endTime));
+		endTimePending = false;
+		}
+	// Deliver group end
+	if (groupEndPending)
+		{
+		STFRES_REASSERT(outputFormatter.CompleteGroup(groupEndNotification));
+		groupEndPending = false;
+		}
 
 	STFRES_RAISE_OK;
 	}

@@ -11,6 +11,7 @@ extern "C"
 #include "VDR/Source/Streaming/BaseStreamingUnit.h"
 #include "VDR/Source/Streaming/StreamingFormatter.h"
 #include "VDR/Source/Unit/PhysicalUnit.h"
+#include "STF/Interface/Types/STFTime.h"
 #include "STF/Interface/STFSynchronisation.h"
 #include "VDR/Source/Streaming/StreamingDiagnostics.h"
 #include "VDR/Interface/Unit/Video/Decoder/IVDRVideoDecoderTypes.h"
@@ -24,6 +25,17 @@ class SDL2VideoRendererUnit : public SharedPhysicalUnit
 {
 	friend class VirtualSDL2VideoRendererUnit;
 
+protected:
+	enum
+		{
+		SDL2_VIDEO_RENDERER_THREAD_PRIORITY = 0,
+		SDL2_VIDEO_RENDERER_THREAD_STACKSIZE = 1,
+		SDL2_VIDEO_RENDERER_THREAD_NAME = 2
+		};
+	uint32 threadPriority;
+	uint32 threadStackSize;
+	char *threadName;
+
 public:
 	SDL2VideoRendererUnit(VDRUID unitID) : SharedPhysicalUnit(unitID) {}
 
@@ -32,22 +44,28 @@ public:
 	//
 	virtual STFResult CreateVirtual(IVirtualUnit * & unit, IVirtualUnit * parent = NULL, IVirtualUnit * root = NULL);
 
-	virtual STFResult Create(uint64 * createParams) {STFRES_RAISE_OK;}
+	virtual STFResult Create(uint64 * createParams);
 	virtual STFResult Connect(uint64 localID, IPhysicalUnit * source) {STFRES_RAISE_OK;}
 	virtual STFResult Initialize(uint64 * depUnitsParams) {STFRES_RAISE_OK;}
 };
 
 
 /// Video Renderer Unit terminates the Video streaming chain (sink)
-class VirtualSDL2VideoRendererUnit : public VirtualNonthreadedStandardStreamingUnit
+class VirtualSDL2VideoRendererUnit : public VirtualThreadedStandardStreamingUnit
 {
 private:
-	bool	Preparing;
+	bool					Preparing; ///< Waiting for stream properties to arrive
+	STFSignal				wakeupSignal; ///< This signal is set when the thread should wake up
+	STFHiPrec64BitTime		pendingStartTime, pendingEndTime; ///< Do we have pending timestamps?
+	bool					startTimeValid, endTimeValid; ///< times start are pending but not yet associated with a frame
+	STFHiPrec32BitDuration	frameDuration; ///< The duration of one frame (depends on NTSC/PAL/whatever)
 
-	SequenceHeaderExtension *seqHeaderExtInfo; // See IVDRVideoDecoderTypes.h
+	SequenceHeaderExtension *seqHeaderExtInfo; ///< See IVDRVideoDecoderTypes.h
 	SDL_Renderer		*renderer;
 	SDL_Window			*screen;
 	SDL_Texture		*texture;
+
+	SDL2VideoRendererUnit *physicalSDL2VideoRendererUnit;
 
 protected:
 
@@ -91,8 +109,8 @@ protected:
 	//
 	// Time information
 	//
-	virtual STFResult ParseStartTime(const STFHiPrec64BitTime & time) {STFRES_RAISE_OK;}
-	virtual STFResult ParseEndTime(const STFHiPrec64BitTime & time) {STFRES_RAISE_OK;}
+	virtual STFResult ParseStartTime(const STFHiPrec64BitTime & time);
+	virtual STFResult ParseEndTime(const STFHiPrec64BitTime & time);
 	virtual STFResult ParseCutDuration(const STFHiPrec32BitDuration & duration) {STFRES_RAISE_OK;}
 	virtual STFResult ParseSkipDuration(const STFHiPrec32BitDuration & duration) {STFRES_RAISE_OK;}
 
@@ -102,14 +120,18 @@ protected:
 public:
 	/// Specific constructor.
 	/// @param physical: Pointer to interface of corresponding physical unit
-	VirtualSDL2VideoRendererUnit (IPhysicalUnit * physical) : VirtualNonthreadedStandardStreamingUnit(physical) {}
-	~VirtualSDL2VideoRendererUnit()
-		{
-		SDL_DestroyTexture(texture);
-		SDL_DestroyRenderer(renderer);
-		SDL_DestroyWindow(screen);
-		SDL_Quit();
-		}
+	VirtualSDL2VideoRendererUnit (SDL2VideoRendererUnit * physical);
+	~VirtualSDL2VideoRendererUnit();
+
+	//
+	// IVirtualUnit
+	//
+	virtual STFResult PreemptUnit(uint32 flags);
+
+	//
+	// VirtualUnitCollection pure virtual function overrides
+	//
+	virtual STFResult Initialize(void);
 
 	//
 	// IStreamingUnit interface implementation
