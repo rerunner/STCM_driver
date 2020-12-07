@@ -43,10 +43,10 @@ STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint3
 	uint8 *buffer = range.GetStart() + offset;
 
 	if (Preparing)
-	{
+		{
 		ConfigureRenderer();
 		Preparing = false;
-	}
+		}
 
 	int ysize = seqHeaderExtInfo->horizontalSize * seqHeaderExtInfo->verticalSize;
 	int uvsize = seqHeaderExtInfo->horizontalChromaSize * seqHeaderExtInfo->verticalChromaSize;
@@ -69,7 +69,15 @@ STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint3
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
 
-	usleep(this->frameDuration.Get32BitDuration()); // HACK HACK HACK: REMOVE THIS WHEN PRESENTATION TIME IS MATCHED WITH SYSTEM TIME (Unit uses thread)
+	oldTime = pollingTime;
+	SystemTimer->GetTime(pollingTime);
+	deltaTime = (pollingTime - oldTime).Get32BitDuration(STFTU_MICROSECS);
+	//if (deltaTime < this->frameDuration.Get32BitDuration(STFTU_MICROSECS))
+	//	{
+	//	DP("--------------------->Rendering, deltaTime = %d\n", deltaTime);
+	//	usleep(this->frameDuration.Get32BitDuration(STFTU_MICROSECS) - deltaTime); // HACK HACK HACK: REMOVE THIS WHEN PRESENTATION TIME IS MATCHED WITH SYSTEM TIME (Unit uses thread)
+	//	}
+
 	STFRES_RAISE_OK;
 	}
 
@@ -117,7 +125,7 @@ STFResult VirtualSDL2VideoRendererUnit::ConfigureRenderer()
 ///////////////////////////////////////////////////////////////////////////////
 VirtualSDL2VideoRendererUnit::VirtualSDL2VideoRendererUnit (SDL2VideoRendererUnit * physical)
 		: VirtualThreadedStandardStreamingUnit(physical,
-											   4,	// Input connector queue size,
+											   3,	// Input connector queue size,
 											   0,	// Input connector threshold,
 											   "SDL2VRen")	// Thread ID name
 	{
@@ -135,9 +143,14 @@ VirtualSDL2VideoRendererUnit::~VirtualSDL2VideoRendererUnit()
 	}
 
 
-STFResult VirtualSDL2VideoRendererUnit::ParseRange(const VDRDataRange & range, uint32 & offset)
+STFResult VirtualSDL2VideoRendererUnit::ParseRanges(const VDRDataRange * ranges, uint32 num, uint32 & range, uint32 & offset)
 	{
-	STFRES_RAISE(Render(range, offset));
+	while (range < num)
+		{
+		STFRES_REASSERT(this->Render(ranges[range], offset));
+		range++;
+		}
+	STFRES_RAISE_OK;
 	}
 
 
@@ -148,7 +161,7 @@ STFResult VirtualSDL2VideoRendererUnit::BeginStreamingCommand(VDRStreamingComman
 		case VDR_STRMCMD_BEGIN:
 			Preparing = true;
 // SDL2 Init, this needs a better place...
-			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) 
+			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER))
 				{
 				DP("SDL2 global init failed.\n");
 				}
@@ -228,7 +241,6 @@ STFResult VirtualSDL2VideoRendererUnit::PreemptUnit(uint32 flags)
 	STFRES_RAISE_OK;
 	}
 
-
 //
 // Time information
 //
@@ -236,9 +248,6 @@ STFResult VirtualSDL2VideoRendererUnit::ParseStartTime(const STFHiPrec64BitTime 
 	{
 	this->pendingStartTime = time;
 	this->startTimeValid = true;
-
-	DP("VirtualSDL2VideoRendererUnit::ParseStartTime(%i)\n", time.Get32BitTime());
-
 	STFRES_RAISE_OK;
 	}
 
@@ -249,4 +258,3 @@ STFResult VirtualSDL2VideoRendererUnit::ParseEndTime(const STFHiPrec64BitTime & 
 
 	STFRES_RAISE_OK;
 	}
-

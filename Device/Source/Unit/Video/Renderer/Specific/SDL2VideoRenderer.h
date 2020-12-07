@@ -67,6 +67,9 @@ private:
 
 	SDL2VideoRendererUnit *physicalSDL2VideoRendererUnit;
 
+	STFHiPrec64BitTime oldTime, pollingTime;
+	int32 deltaTime;
+
 protected:
 
 	virtual STFResult Render(const VDRDataRange & range, uint32 & offset);
@@ -75,7 +78,7 @@ protected:
 	//
 	// Data range parsing
 	//
-	virtual STFResult ParseRange(const VDRDataRange & range, uint32 & offset);
+	virtual STFResult ParseRanges(const VDRDataRange * ranges, uint32 num, uint32 & range, uint32 & offset);
 
 	//
 	// Range information parsing

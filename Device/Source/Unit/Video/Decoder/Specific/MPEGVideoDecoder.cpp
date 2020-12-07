@@ -78,7 +78,7 @@ STFResult MPEGVideoDecoderUnit::CreateVirtual(IVirtualUnit * & unit, IVirtualUni
 VirtualMPEGVideoDecoderUnit::VirtualMPEGVideoDecoderUnit(MPEGVideoDecoderUnit * physicalMPEGVideoDecoder)
 	: VirtualThreadedStandardInOutStreamingUnitCollection(physicalMPEGVideoDecoder,
 														  1,	// Number of children in the virtual unit collection,
-														  4,	// Number of output packets in output connector,
+														  3,	// Number of output packets in output connector,
 														  4,	// Input connector queue size,
 														  0,	// Input connector threshold,
 														  "MPEGVideoDecoder")	// Thread ID name,
@@ -133,16 +133,7 @@ STFResult VirtualMPEGVideoDecoderUnit::AllocateChildUnits (void)
 STFResult VirtualMPEGVideoDecoderUnit::PrepareDecoder()
 	{
 	preparing = false;
-	for (int i = 0; i < 2; i++)
-		{
-		if ( STFRES_FAILED(outputPoolAllocator->GetMemoryBlocks(&memoryBlock, 0, 1, numObtainedBlocks, this)))
-			{
-			return STFRES_NOT_ENOUGH_MEMORY;
-			}
-		decodedPictureRange[i].Init(memoryBlock, 0, memoryBlock->GetSize());
-		}
 	rangeCounter = 0;
-
 	//Signal upstream that the decoder is ready to start
 	inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
 	STFRES_RAISE_OK;
@@ -152,6 +143,7 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 	{
 	uint8_t * buffer;
 	uint8_t * end;
+	STFResult res;
 
 	if (preparing)
 		{
@@ -162,6 +154,7 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 	end = buffer + range.size - offset;
 
 	mpeg2_buffer (decoder, buffer, end);
+
 	while (!flushRequest)
 		{
 		state = mpeg2_parse (decoder);
@@ -222,7 +215,10 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 				if (info->display_fbuf)
 					{
 					// picture ready.
-					DeliverData();
+					//STFRES_REASSERT(DeliverData());
+					res =  DeliverData();
+					while (res != STFRES_OK)
+						res =  DeliverData();
 					}
 				if (info->discard_fbuf)
 					{
@@ -239,54 +235,90 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 
 STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 	{
-	// Deliver segment start
-	if (framenum == 0)
-		{
-		STFRES_REASSERT(outputFormatter.BeginSegment(segmentCount, false));
-		STFRES_REASSERT(outputFormatter.PutDataDiscontinuity());
-		}
+	//
+	// This method needs a state machine for re-entry purpose (retry after object full)
+	//
+	if (!(info->display_fbuf))
+		STFRES_RAISE_OK;
 
-	if (dataPropertiesChanged & MPEG2_VIDEOTYPE_CHANGED)
+	switch (deliverState)
 		{
-		STFRES_REASSERT(outputFormatter.PutTag(SET_MPEG_VIDEO_SEQUENCE_PARAMETERS(&seqHeaderExtInfo)));
-		dataPropertiesChanged &= ~MPEG2_VIDEOTYPE_CHANGED;
-		// Each call to PutTag() places one tag into the stream,
-		// the call to CompleteTags() finally places the tag done
-		STFRES_REASSERT(outputFormatter.CompleteTags());
-		}
+		case MPEGVIDEO_DELIVER_SEGMENT_START:
+			// Deliver segment start
+			if (framenum == 0)
+				{
+				STFRES_REASSERT(outputFormatter.BeginSegment(segmentCount, false));
+				STFRES_REASSERT(outputFormatter.PutDataDiscontinuity());
+				}
+			if (dataPropertiesChanged & MPEG2_VIDEOTYPE_CHANGED)
+				{
+				STFRES_REASSERT(outputFormatter.PutTag(SET_MPEG_VIDEO_SEQUENCE_PARAMETERS(&seqHeaderExtInfo)));
+				dataPropertiesChanged &= ~MPEG2_VIDEOTYPE_CHANGED;
+				// Each call to PutTag() places one tag into the stream,
+				// the call to CompleteTags() finally places the tag done
+				STFRES_REASSERT(outputFormatter.CompleteTags());
+				}
+			deliverState = MPEGVIDEO_DELIVER_BEGIN_GROUP;
 
-	// Deliver group start
-	STFRES_REASSERT(outputFormatter.BeginGroup(framenum++, false, true));
-	// Deliver start time
-	if (startTimePending)
-		{
-		STFRES_REASSERT(outputFormatter.PutStartTime(startTime));
-		startTimePending = false;
-		}
-	// picture ready.
-	// memcopy to framebuffer. Note that u and v are reversed to
-	// get the correct color.
-	// Copy the sample into the memoryblock
-	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart(), ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
-	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
-	memcpy (decodedPictureRange[rangeCounter%2].block->GetStart() + ysize + uvsize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
+		case MPEGVIDEO_DELIVER_BEGIN_GROUP:
+			// Deliver group start
+			STFRES_REASSERT(outputFormatter.BeginGroup(framenum, false, true));
+			deliverState = MPEGVIDEO_DELIVER_START_TIME;
 
-	STFRES_REASSERT(outputFormatter.PutRange(decodedPictureRange[rangeCounter%2]));
-	outputFormatter.Commit(); // Don't wait, just push to the output
+		case MPEGVIDEO_DELIVER_START_TIME:
+			// Deliver start time
+			if (startTimePending)
+				{
+				STFRES_REASSERT(outputFormatter.PutStartTime(startTime));
+				startTimePending = false;
+				}
+			else
+				{
+				startTime += STFHiPrec32BitDuration(40000, STFTU_MICROSECS); //PAL HACK
+				STFRES_REASSERT(outputFormatter.PutStartTime(startTime));
+				}
+			deliverState = MPEGVIDEO_DELIVER_GET_MEMORYBLOCKS;
 
-	rangeCounter++;
+		case MPEGVIDEO_DELIVER_GET_MEMORYBLOCKS:
+			// picture ready.
+			// Get a memory block from the output formatter
+			STFRES_REASSERT(outputPoolAllocator->GetMemoryBlocks(&memoryBlock, 0, 1, numObtainedBlocks, this));
+			decodedPictureRange[rangeCounter%3].Init(memoryBlock, 0, memoryBlock->GetSize());
+			// memcopy to framebuffer. Note that u and v are reversed to
+			// get the correct color.
+			// Copy the sample into the memoryblock
+			memcpy (decodedPictureRange[rangeCounter%3].block->GetStart(), ((struct fbuf_s *)info->display_fbuf->id)->yuv[0], ysize);
+			memcpy (decodedPictureRange[rangeCounter%3].block->GetStart() + ysize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[1], uvsize);
+			memcpy (decodedPictureRange[rangeCounter%3].block->GetStart() + ysize + uvsize, ((struct fbuf_s *)info->display_fbuf->id)->yuv[2], uvsize);
+			deliverState = MPEGVIDEO_DELIVER_RANGE;
 
-	// Deliver end time
-	if (endTimePending)
-		{
-		STFRES_REASSERT(outputFormatter.PutEndTime(endTime));
-		endTimePending = false;
-		}
-	// Deliver group end
-	if (groupEndPending)
-		{
-		STFRES_REASSERT(outputFormatter.CompleteGroup(groupEndNotification));
-		groupEndPending = false;
+		case MPEGVIDEO_DELIVER_RANGE:
+			STFRES_REASSERT(outputFormatter.PutRange(decodedPictureRange[rangeCounter%3]));
+			deliverState = MPEGVIDEO_DELIVER_END_TIME;
+
+		case MPEGVIDEO_DELIVER_END_TIME:
+			// Deliver end time
+			if (endTimePending)
+				{
+				STFRES_REASSERT(outputFormatter.PutEndTime(endTime));
+				endTimePending = false;
+				}
+			deliverState = MPEGVIDEO_DELIVER_GROUP_END;
+
+		case MPEGVIDEO_DELIVER_GROUP_END:
+			// Deliver group end
+			if (groupEndPending)
+				{
+				STFRES_REASSERT(outputFormatter.CompleteGroup(groupEndNotification));
+				groupEndPending = false;
+				}
+			framenum++;
+			rangeCounter++;
+			outputFormatter.Commit(); // Don't wait, just push to the output
+			deliverState = MPEGVIDEO_DELIVER_BEGIN_GROUP;
+
+		default:
+			break;
 		}
 
 	STFRES_RAISE_OK;
@@ -297,6 +329,8 @@ STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 
 STFResult VirtualMPEGVideoDecoderUnit::ParseRanges(const VDRDataRange * ranges, uint32 num, uint32 & range, uint32 & offset)
 	{
+//	if (!preparing)
+//		STFRES_REASSERT(DeliverData());// First check if pending data needs to be send.
 	while (range < num)
 		{
 		STFRES_REASSERT(this->DecodeData(ranges[range], offset));
@@ -317,11 +351,11 @@ STFResult VirtualMPEGVideoDecoderUnit::BeginStreamingCommand(VDRStreamingCommand
 			segmentCount = 0;
 			framenum = 0;
 			preparing = true;
+			deliverState = MPEGVIDEO_DELIVER_SEGMENT_START;
 			break;
 		case VDR_STRMCMD_DO:
 			break;
 		case VDR_STRMCMD_FLUSH:
-				
 		case VDR_STRMCMD_STEP:
 		case VDR_STRMCMD_NONE:
 			break;

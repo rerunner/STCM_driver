@@ -88,6 +88,18 @@ class VirtualMPEGVideoDecoderUnit : public VirtualThreadedStandardInOutStreaming
 				}
 		return NULL;
 		}
+
+	enum MPEGVIDEOState
+		{
+		MPEGVIDEO_DELIVER_SEGMENT_START,
+		MPEGVIDEO_DELIVER_BEGIN_GROUP,
+		MPEGVIDEO_DELIVER_START_TIME,
+		MPEGVIDEO_DELIVER_GET_MEMORYBLOCKS,
+		MPEGVIDEO_DELIVER_RANGE,
+		MPEGVIDEO_DELIVER_END_TIME,
+		MPEGVIDEO_DELIVER_GROUP_END
+		} deliverState;
+
 protected:
 	MPEGVideoDecoderUnit		*physicalMPEGVideoDecoder;
 	IVDRMemoryPoolAllocator	*outputPoolAllocator;
@@ -108,16 +120,16 @@ protected:
 	int				width, height, ysize, uvsize, dest_pitch;
 	struct fbuf_s		*current_fbuf;
 
-	STFHiPrec64BitTime		startTime;
-	STFHiPrec64BitTime		endTime;
-	STFHiPrec32BitDuration	timeDiff;
+	  //	STFHiPrec64BitTime		startTime;
+	  //	STFHiPrec64BitTime		endTime;
+	  //STFHiPrec32BitDuration	timeDiff;
 
 	SequenceHeaderExtension seqHeaderExtInfo; // See IVDRVideoDecoderTypes.h
 	int segmentCount;
 	uint32 dataPropertiesChanged;
 	uint32 numObtainedBlocks; ///< Number of allocated memory blocks
 	VDRMemoryBlock *memoryBlock;
-	VDRDataRange	decodedPictureRange[2]; // One decoding, one displaying
+	VDRDataRange	decodedPictureRange[3];
 	int rangeCounter;
 	bool preparing;
 
@@ -144,9 +156,9 @@ protected:
 	//
 	// Range information parsing
 	//
-	virtual STFResult ParseDataDiscontinuity(void) {STFRES_RAISE_OK;}
-	virtual STFResult ParseTimeDiscontinuity(void) {STFRES_RAISE_OK;}
-	virtual STFResult ParseBeginGroup(uint16 groupNumber, bool requestNotification, bool singleUnitGroup)
+	//virtual STFResult ParseDataDiscontinuity(void) {STFRES_RAISE_OK;}
+	//virtual STFResult ParseTimeDiscontinuity(void) {STFRES_RAISE_OK;}
+	  /*	virtual STFResult ParseBeginGroup(uint16 groupNumber, bool requestNotification, bool singleUnitGroup)
 	{	if (requestNotification)
 			inputConnector->SendUpstreamNotification(VDRMID_STRM_GROUP_START, groupNumber, 0);
 		STFRES_RAISE_OK;
@@ -166,7 +178,7 @@ protected:
 			inputConnector->SendUpstreamNotification(VDRMID_STRM_SEGMENT_END, segmentNumber, 0);
 		STFRES_RAISE_OK;
 	}
-
+	  */
 	/// Returns if input data is currently being used for processing.
 	virtual bool InputPending(void) {return false;}
 
