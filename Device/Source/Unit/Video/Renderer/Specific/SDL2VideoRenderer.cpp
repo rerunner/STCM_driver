@@ -161,7 +161,7 @@ STFResult VirtualSDL2VideoRendererUnit::BeginStreamingCommand(VDRStreamingComman
 		case VDR_STRMCMD_BEGIN:
 			Preparing = true;
 // SDL2 Init, this needs a better place...
-			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER))
+			if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO /* | SDL_INIT_TIMER */))
 				{
 				DP("SDL2 global init failed.\n");
 				}
