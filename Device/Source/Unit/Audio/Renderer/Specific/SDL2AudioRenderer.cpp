@@ -36,8 +36,6 @@ STFResult VirtualSDL2AudioRendererUnit::Render(const VDRDataRange & range, uint3
 		ConfigureRenderer();
 		}
 
-	STFRES_RAISE_OK; // Do NOT CHECK IN
-
 	flags &= A52_CHANNEL_MASK | A52_LFE;
 
 	float2s16_multi ((float*)range.GetStart() + offset, int16_samples, flags);
