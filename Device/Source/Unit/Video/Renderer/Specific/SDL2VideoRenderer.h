@@ -12,6 +12,7 @@ extern "C"
 #include "VDR/Source/Streaming/StreamingFormatter.h"
 #include "VDR/Source/Unit/PhysicalUnit.h"
 #include "STF/Interface/Types/STFTime.h"
+#include "STF/Interface/STFTimer.h"
 #include "STF/Interface/STFSynchronisation.h"
 #include "VDR/Source/Streaming/StreamingDiagnostics.h"
 #include "VDR/Interface/Unit/Video/Decoder/IVDRVideoDecoderTypes.h"
@@ -69,6 +70,7 @@ private:
 
 	STFHiPrec64BitTime oldTime, pollingTime;
 	int32 deltaTime;
+	STFTimer videoRenderTimer;
 
 protected:
 

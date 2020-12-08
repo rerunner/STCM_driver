@@ -65,18 +65,16 @@ STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint3
 		vPlane,
 		uvPitch);
 
-	SDL_RenderClear(renderer);
-	SDL_RenderCopy(renderer, texture, NULL, NULL);
-	SDL_RenderPresent(renderer);
-
 	oldTime = pollingTime;
 	SystemTimer->GetTime(pollingTime);
 	deltaTime = (pollingTime - oldTime).Get32BitDuration(STFTU_MICROSECS);
-	//if (deltaTime < this->frameDuration.Get32BitDuration(STFTU_MICROSECS))
-	//	{
-	//	DP("--------------------->Rendering, deltaTime = %d\n", deltaTime);
-	//	usleep(this->frameDuration.Get32BitDuration(STFTU_MICROSECS) - deltaTime); // HACK HACK HACK: REMOVE THIS WHEN PRESENTATION TIME IS MATCHED WITH SYSTEM TIME (Unit uses thread)
-	//	}
+	if (deltaTime < this->frameDuration.Get32BitDuration(STFTU_MICROSECS))
+		{
+		videoRenderTimer.WaitDuration(STFLoPrec32BitDuration((this->frameDuration.Get32BitDuration(STFTU_MICROSECS) - deltaTime), STFTU_MICROSECS));
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, texture, NULL, NULL);
+		SDL_RenderPresent(renderer);
+		}
 
 	STFRES_RAISE_OK;
 	}

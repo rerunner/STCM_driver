@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <errno.h>
+#include <unistd.h>
 
 uint32 ClockMultiplier_SystemTo108;
 uint32 ClockMultiplier_108ToSystem;                 
@@ -30,18 +31,18 @@ STFResult OSSTFTimer::WaitDuration(const STFLoPrec32BitDuration & duration)
 	{
 	int res;
 
-   struct timespec nanodelayreq, nanoremaining;
+	struct timespec nanodelayreq, nanoremaining;
 	if (duration < STFLoPrec32BitDuration(0,STFTU_HIGHSYSTEM)) 
-      STFRES_RAISE(STFRES_INVALID_PARAMETERS);
+		STFRES_RAISE(STFRES_INVALID_PARAMETERS);
 
-	long	millis = duration.Get32BitDuration();
+	int32	millis = duration.Get32BitDuration();
 	
 	nanodelayreq.tv_sec = millis / 1000;
-   nanodelayreq.tv_nsec = (millis - (millis / 1000)) * 1000;
+	nanodelayreq.tv_nsec = (millis - (millis / 1000)) * 1000 * 1000;
 
-   do
+	do
 		{
-	   res = nanosleep(&nanodelayreq, &nanoremaining);
+		res = nanosleep(&nanodelayreq, &nanoremaining);
 
 		if (res == -1 && errno == EINTR)
 			{
