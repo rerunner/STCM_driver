@@ -132,6 +132,7 @@ protected:
 	VDRDataRange	decodedPictureRange[3];
 	int rangeCounter;
 	bool preparing;
+	STFHiPrec64BitTime		presentationTime;
 
 	virtual STFResult PrepareDecoder();
 	virtual STFResult DecodeData(const VDRDataRange & range, uint32 & offset);
@@ -156,6 +157,8 @@ protected:
 	//
 	// Range information parsing
 	//
+	virtual STFResult ParseStartTime(const STFHiPrec64BitTime & time){STFRES_RAISE_OK;}
+	virtual STFResult ParseEndTime(const STFHiPrec64BitTime & time){STFRES_RAISE_OK;}
 	//virtual STFResult ParseDataDiscontinuity(void) {STFRES_RAISE_OK;}
 	//virtual STFResult ParseTimeDiscontinuity(void) {STFRES_RAISE_OK;}
 	  /*	virtual STFResult ParseBeginGroup(uint16 groupNumber, bool requestNotification, bool singleUnitGroup)

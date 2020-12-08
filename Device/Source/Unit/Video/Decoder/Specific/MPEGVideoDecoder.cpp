@@ -267,16 +267,8 @@ STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 
 		case MPEGVIDEO_DELIVER_START_TIME:
 			// Deliver start time
-			if (startTimePending)
-				{
-				STFRES_REASSERT(outputFormatter.PutStartTime(startTime));
-				startTimePending = false;
-				}
-			else
-				{
-				startTime += STFHiPrec32BitDuration(40000, STFTU_MICROSECS); //PAL HACK
-				STFRES_REASSERT(outputFormatter.PutStartTime(startTime));
-				}
+			STFRES_REASSERT(outputFormatter.PutStartTime(presentationTime));
+			startTime += STFHiPrec32BitDuration(40000, STFTU_MICROSECS); //PAL HACK
 			deliverState = MPEGVIDEO_DELIVER_GET_MEMORYBLOCKS;
 
 		case MPEGVIDEO_DELIVER_GET_MEMORYBLOCKS:
@@ -298,11 +290,7 @@ STFResult VirtualMPEGVideoDecoderUnit::DeliverData()
 
 		case MPEGVIDEO_DELIVER_END_TIME:
 			// Deliver end time
-			if (endTimePending)
-				{
-				STFRES_REASSERT(outputFormatter.PutEndTime(endTime));
-				endTimePending = false;
-				}
+			STFRES_REASSERT(outputFormatter.PutEndTime(presentationTime));
 			deliverState = MPEGVIDEO_DELIVER_GROUP_END;
 
 		case MPEGVIDEO_DELIVER_GROUP_END:
