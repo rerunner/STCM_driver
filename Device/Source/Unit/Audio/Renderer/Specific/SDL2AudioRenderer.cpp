@@ -31,7 +31,7 @@ STFResult VirtualSDL2AudioRendererUnit::Render(const VDRDataRange & range, uint3
 	int16_t int16_samples[256*6];
 	ssize_t r;
 
-	if (Preparing)
+	if (dev == 0)
 		{
 		ConfigureRenderer();
 		}
@@ -44,8 +44,6 @@ STFResult VirtualSDL2AudioRendererUnit::Render(const VDRDataRange & range, uint3
 
 	if (SDL_QueueAudio(dev, int16_samples, (uint32) r) == 0)
 		{
-		if (Preparing)
-			SDL_LockAudioDevice(dev);
 		STFRES_RAISE_OK;
 		}
 	else
@@ -92,21 +90,16 @@ STFResult VirtualSDL2AudioRendererUnit::channels_multi ()
 
 STFResult VirtualSDL2AudioRendererUnit::ConfigureRenderer()
 	{
-	if (dev == 0)
-		{
-		SDL_memset(&want, 0, sizeof(want)); /* or SDL_zero(want) */
-		want.freq = sampleRate;
-		want.format = AUDIO_S16;
-		want.channels = 2;
-		want.samples = 4096;
-		want.callback = NULL; // MyAudioCallback; /* you wrote this function elsewhere -- see SDL_AudioSpec for details */
+	SDL_memset(&want, 0, sizeof(want)); /* or SDL_zero(want) */
+	want.freq = sampleRate;
+	want.format = AUDIO_S16;
+	want.channels = 2;
+	want.samples = 4096;
+	want.callback = NULL; /* you wrote this function elsewhere -- see SDL_AudioSpec for details */
 
-		dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+	dev = SDL_OpenAudioDevice(NULL, 0, &want, &have, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
 
-		inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
-
-		SDL_PauseAudioDevice(dev, 0); /* start audio playing. */
-		}
+	SDL_PauseAudioDevice(dev, 0); /* start audio playing. */
 	STFRES_RAISE_OK;
 	}
 
@@ -125,13 +118,10 @@ STFResult VirtualSDL2AudioRendererUnit::BeginStreamingCommand(VDRStreamingComman
 		{
 		case VDR_STRMCMD_BEGIN:
 			dev = 0;
-			Preparing = true;
-			//inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
+			inputConnector->SendUpstreamNotification(VDRMID_STRM_START_POSSIBLE, 0, 0);
 			DP("Audio Preparing\n");
 			break;
 		case VDR_STRMCMD_DO:
-			Preparing = false;
-			SDL_UnlockAudioDevice(dev);
 			DP("Audio started\n");
 			break;
 		case VDR_STRMCMD_FLUSH:

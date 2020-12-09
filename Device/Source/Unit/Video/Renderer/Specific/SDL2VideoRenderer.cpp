@@ -52,8 +52,8 @@ STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint3
 	int uvsize = seqHeaderExtInfo->horizontalChromaSize * seqHeaderExtInfo->verticalChromaSize;
 	int uvPitch = seqHeaderExtInfo->horizontalSize / 2;
 	uint8 *yPlane = buffer; // size = ySize
-	uint8 *vPlane = buffer + ysize; // size = uvsize
-	uint8 *uPlane = vPlane + uvsize; // size = uvsize
+	uint8 *uPlane = buffer + ysize; // size = uvsize
+	uint8 *vPlane = uPlane + uvsize; // size = uvsize
 
 	SDL_UpdateYUVTexture(
 		texture,
