@@ -88,7 +88,7 @@ STFResult VirtualDVDPESSplitterUnit::ParsePESPacket(const VDRDataRange * ranges,
 		size = ranges[range].size;
 		start = offset;
 
-		if (state == DVDPESS_PARSE_PACKHEADER_0 && size == 2048 && offset == 0 && ((uint32)pos & 3) == 0 && *((uint32 *)pos) == *((uint32 *)&packHeader))
+		if (state == DVDPESS_PARSE_PACKHEADER_0 && size == 2048 && offset == 0 && ((PADDR)pos & 3) == 0 && *((uint32 *)pos) == *((uint32 *)&packHeader))
 			{
 			streamQueue.AppendRange(ranges[range], this);
 			range++;

@@ -168,6 +168,11 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 				width = info->sequence->width;
 				height = info->sequence->height;
 				DP("Video size: width = %d, height = %d.\n", width, height);
+				
+				// The MPEG-2 system is driven by a 27 MHz clock.
+				seqHeaderExtInfo.frameRateExtensionN = 27000000;
+				seqHeaderExtInfo.frameRateExtensionD = info->sequence->frame_period;
+
 				ysize = width * height;
 				uvsize = info->sequence->chroma_height * info->sequence->chroma_width;
 

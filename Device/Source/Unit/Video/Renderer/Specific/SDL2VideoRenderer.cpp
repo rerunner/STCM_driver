@@ -82,13 +82,15 @@ STFResult VirtualSDL2VideoRendererUnit::Render(const VDRDataRange & range, uint3
 
 STFResult VirtualSDL2VideoRendererUnit::ConfigureRenderer()
 	{
-	// Initialize our frameDuration with NTSC
-	//this->frameDuration = STFHiPrec32BitDuration(33360, STFTU_MICROSECS);
-	// Initialize our frameDuration with PAL
-	this->frameDuration = STFHiPrec32BitDuration(40000, STFTU_MICROSECS);
+	// The MPEG-2 system is driven by a 27 MHz clock.  If you divide
+	// 1080000 into 27000000 you get 25.  That's why the field is frame
+	// period; it refers to a length of time, not a rate.
+	uint32 fps = seqHeaderExtInfo->frameRateExtensionN / seqHeaderExtInfo->frameRateExtensionD;
+	this->frameDuration = STFHiPrec32BitDuration((1000*(1000/fps)), STFTU_MICROSECS);
 	//Open SDL2 video device
 	// Make a screen to put our video
-	DP("Video Renderer creating display, width = %d, height = %d.\n", seqHeaderExtInfo->horizontalSize,seqHeaderExtInfo->verticalSize);
+	DP("Video Renderer creating display, width = %d, height = %d. frame duration = %d ms.\n", seqHeaderExtInfo->horizontalSize,
+		seqHeaderExtInfo->verticalSize, frameDuration.Get32BitDuration());
 	screen = SDL_CreateWindow(	"MPEG2 Video",
 								SDL_WINDOWPOS_UNDEFINED,
 								SDL_WINDOWPOS_UNDEFINED,

@@ -60,8 +60,10 @@ struct SequenceHeaderExtension	// MPEG 1/2
 	bool   progressiveSequence;
 	uint8  chromaFormat;
 	bool   lowDelay;
-	uint8  frameRateExtensionN;
-	uint8  frameRateExtensionD;
+	//uint8  frameRateExtensionN;
+	//uint8  frameRateExtensionD;
+	uint32 frameRateExtensionN;
+	uint32 frameRateExtensionD;
 	uint16 horizontalChromaSize;
 	uint16 verticalChromaSize;
 	};
