@@ -167,8 +167,51 @@ STFResult VirtualMPEGVideoDecoderUnit::DecodeData(const VDRDataRange & range, ui
 			case STATE_SEQUENCE:
 				width = info->sequence->width;
 				height = info->sequence->height;
-				DP("Video size: width = %d, height = %d.\n", width, height);
-				
+				DP("Video size: width         = %d, height         = %d.\n", width, height);
+				DP("          : picture_width = %d, picture_height = %d.\n", info->sequence->picture_width, info->sequence->picture_height);
+				DP("          : display_width = %d, display_height = %d.\n", info->sequence->display_width, info->sequence->display_height);
+				DP("          : pixel_width   = %d, pixel_height   = %d.\n", info->sequence->pixel_width, info->sequence->pixel_height);
+				/*	picture_width, picture_height:  --> The actual video size in pixels.
+					display_width, display_height:	--> The display values refer to the dimensions that the player should render the video at.
+					pixel_width, pixel_height:		--> The pixel values refer to the actual number of samples stored per frame.
+
+					aspect ratio = (picture_width * pixel_width) / (picture_height * pixel_height)
+
+					The aspect_ratio_information may have the following values (with all others being reserved or forbidden):
+					
+					    0001  1:1
+					    0010  4:3
+					    0011  16:9
+					    0100  2.21:1
+
+					See also https://www.mir.com/DMG/aspect.html
+				*/
+				if (((info->sequence->picture_width * info->sequence->pixel_width) / (info->sequence->picture_height * info->sequence->pixel_height)) == (4/3))
+					{
+					seqHeaderExtInfo.aspectRatioInformation = 0x0010;
+					DP("Aspect Ration = 4/3\n");
+					}
+				else if (((info->sequence->picture_width * info->sequence->pixel_width) / (info->sequence->picture_height * info->sequence->pixel_height)) == (16/9))
+					{
+					seqHeaderExtInfo.aspectRatioInformation = 0x0011;
+					DP("Aspect Ration = 16/9\n");
+					}
+				else if (((info->sequence->picture_width * info->sequence->pixel_width) / (info->sequence->picture_height * info->sequence->pixel_height)) == (2.21/1))
+					{
+					seqHeaderExtInfo.aspectRatioInformation = 0x0100;
+					DP("Aspect Ration = 2.21/1\n");
+					}
+				else if (((info->sequence->picture_width * info->sequence->pixel_width) / (info->sequence->picture_height * info->sequence->pixel_height)) == (1/1))
+					{
+					seqHeaderExtInfo.aspectRatioInformation = 0x0001;
+					DP("Aspect Ration = 1/1\n");
+					}
+				else
+					{
+					seqHeaderExtInfo.aspectRatioInformation = 0x0010;
+					DP("Aspect Ration = NOT VALID, force 4/3\n");
+					}
+
 				// The MPEG-2 system is driven by a 27 MHz clock.
 				seqHeaderExtInfo.frameRateExtensionN = 27000000;
 				seqHeaderExtInfo.frameRateExtensionD = info->sequence->frame_period;

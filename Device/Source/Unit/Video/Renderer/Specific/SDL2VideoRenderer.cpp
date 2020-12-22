@@ -1,6 +1,7 @@
 #include "SDL2VideoRenderer.h"
 #include "STF/Interface/STFTimer.h"
 #include "STF/Interface/STFDebug.h"
+#include "Device/Interface/Unit/Video/IVideoTypes.h"
 #include "VDR/Source/Construction/IUnitConstruction.h"
 
 
@@ -87,6 +88,10 @@ STFResult VirtualSDL2VideoRendererUnit::ConfigureRenderer()
 	// period; it refers to a length of time, not a rate.
 	uint32 fps = seqHeaderExtInfo->frameRateExtensionN / seqHeaderExtInfo->frameRateExtensionD;
 	this->frameDuration = STFHiPrec32BitDuration((1000*(1000/fps)), STFTU_MICROSECS);
+
+	//Get proper pixel aspect ratio for 4:3 screen
+	uint32 screenPixelAspectRatio4by3 = VD_PIX_ASPECT_RATIO_PAL_16_BY_9;
+
 	//Open SDL2 video device
 	// Make a screen to put our video
 	DP("Video Renderer creating display, width = %d, height = %d. frame duration = %d ms.\n", seqHeaderExtInfo->horizontalSize,
